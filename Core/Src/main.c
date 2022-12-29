@@ -42,6 +42,7 @@
 I2C_HandleTypeDef hi2c1;
 
 TIM_HandleTypeDef htim2;
+TIM_HandleTypeDef htim21;
 
 UART_HandleTypeDef huart2;
 
@@ -63,6 +64,7 @@ static void MX_GPIO_Init(void);
 static void MX_I2C1_Init(void);
 static void MX_USART2_UART_Init(void);
 static void MX_TIM2_Init(void);
+static void MX_TIM21_Init(void);
 /* USER CODE BEGIN PFP */
 
 void delay_ms(uint16_t ms);
@@ -70,7 +72,32 @@ void delay_ms(uint16_t ms);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+void disable_vibrator_pin()
+{
+	GPIO_InitTypeDef GPIO_InitStruct = {0};
+  /*Configure to be output mode and set to Disable*/
+  GPIO_InitStruct.Pin = VIB_EN_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(VIB_EN_GPIO_Port, &GPIO_InitStruct);	
+	
+	HAL_GPIO_WritePin(VIB_EN_GPIO_Port,VIB_EN_Pin,GPIO_PIN_RESET);
+}
 
+void enable_vibrator_pin()
+{
+	GPIO_InitTypeDef GPIO_InitStruct = {0};
+  __HAL_RCC_GPIOA_CLK_ENABLE();
+  /*Configure to be TIM2 PWM mode*/
+  GPIO_InitStruct.Pin = VIB_EN_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
+  GPIO_InitStruct.Pull = GPIO_PULLDOWN;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  GPIO_InitStruct.Alternate = GPIO_AF2_TIM2;
+  HAL_GPIO_Init(VIB_EN_GPIO_Port, &GPIO_InitStruct);
+	HAL_GPIO_WritePin(VIB_EN_GPIO_Port,VIB_EN_Pin,GPIO_PIN_RESET);
+}
 /* USER CODE END 0 */
 
 /**
@@ -104,20 +131,30 @@ int main(void)
   MX_I2C1_Init();
   MX_USART2_UART_Init();
   MX_TIM2_Init();
+  MX_TIM21_Init();
   /* USER CODE BEGIN 2 */
 	BOOT0_OFF();
 	LEDR_OFF();
 	LEDG_OFF();
 	BUCK_OFF();
-	HAL_Delay(1000);
+	disable_vibrator_pin();
+	//HAL_GPIO_WritePin(VIB_EN_GPIO_Port,VIB_EN_Pin,GPIO_PIN_RESET);
+	HAL_Delay(100);
 	LEDR_ON();
 	LEDG_ON();
-	HAL_Delay(500);
 	BUCK_ON();
-	HAL_Delay(1000);
+	HAL_Delay(200);
+	enable_vibrator_pin();
+	VIBRATOR_ON();
+	HAL_Delay(100);
+	disable_vibrator_pin();
+	VIBRATOR_OFF();	
+	LASER_ON();
+	HAL_Delay(100);
 	BUCK_OFF();	
 	LEDR_OFF();
 	LASER_OFF();	
+	
 	//HAL_TIM_Base_Start_DMA(&htim2,(uint32_t*)LunaData,9);
 	//HAL_UART_Receive_IT(&huart2,LunaData,9);
   /* USER CODE END 2 */
@@ -141,28 +178,34 @@ int main(void)
 		}
 		else if(Operating_mode == LIDAR_ON)
 		{			
-			HAL_TIM_Base_Start_IT(&htim2);
+			HAL_TIM_Base_Start_IT(&htim21);
 			LEDR_ON();
 			BUCK_ON();	
 			delay_ms(50);		
 			//HAL_UART_Receive_DMA(&huart2,(uint8_t *)LunaData,9);
 			Operating_mode = LIDAR_SCAN;
-			HAL_UART_Receive_IT(&huart2,(uint8_t *)LunaData,9);						
+			HAL_UART_Receive_IT(&huart2,(uint8_t *)LunaData,9);	
+			VIBRATOR_ON();
+			enable_vibrator_pin();
 		}
 		else if(Operating_mode == LIDAR_SCAN)
 		{
-			
+			LASER_ON();
 			
 		}
 		else if(Operating_mode == LIDAR_END)
 		{
+			disable_vibrator_pin();
+			VIBRATOR_OFF();
 			//HAL_UART_DMAStop(&huart2);	
 			Operating_mode = 0;
-			HAL_TIM_Base_Stop_IT(&htim2);	
+			HAL_TIM_Base_Stop_IT(&htim21);	
 			delay_ms(50);
 			LEDR_OFF();
 			BUCK_OFF();
+			LASER_OFF();
 			//HAL_GPIO_TogglePin(LEDR_GPIO_Port,LEDR_Pin);	
+			
 			Operating_mode = NORMAL;
 		}
   }
@@ -232,7 +275,7 @@ static void MX_I2C1_Init(void)
   /* USER CODE END I2C1_Init 1 */
   hi2c1.Instance = I2C1;
   hi2c1.Init.Timing = 0x2000090E;
-  hi2c1.Init.OwnAddress1 = 0x0a;
+  hi2c1.Init.OwnAddress1 = 20;
   hi2c1.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
   hi2c1.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
   hi2c1.Init.OwnAddress2 = 0;
@@ -275,14 +318,15 @@ static void MX_TIM2_Init(void)
 
   TIM_ClockConfigTypeDef sClockSourceConfig = {0};
   TIM_MasterConfigTypeDef sMasterConfig = {0};
+  TIM_OC_InitTypeDef sConfigOC = {0};
 
   /* USER CODE BEGIN TIM2_Init 1 */
 
   /* USER CODE END TIM2_Init 1 */
   htim2.Instance = TIM2;
-  htim2.Init.Prescaler = 800;
+  htim2.Init.Prescaler = 1;
   htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim2.Init.Period = 60000;
+  htim2.Init.Period = 100;
   htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV4;
   htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim2) != HAL_OK)
@@ -294,15 +338,73 @@ static void MX_TIM2_Init(void)
   {
     Error_Handler();
   }
+  if (HAL_TIM_PWM_Init(&htim2) != HAL_OK)
+  {
+    Error_Handler();
+  }
   sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
   sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
   if (HAL_TIMEx_MasterConfigSynchronization(&htim2, &sMasterConfig) != HAL_OK)
   {
     Error_Handler();
   }
+  sConfigOC.OCMode = TIM_OCMODE_PWM2;
+  sConfigOC.Pulse = 20;
+  sConfigOC.OCPolarity = TIM_OCPOLARITY_LOW;
+  sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
+  if (HAL_TIM_PWM_ConfigChannel(&htim2, &sConfigOC, TIM_CHANNEL_2) != HAL_OK)
+  {
+    Error_Handler();
+  }
   /* USER CODE BEGIN TIM2_Init 2 */
 
   /* USER CODE END TIM2_Init 2 */
+  HAL_TIM_MspPostInit(&htim2);
+
+}
+
+/**
+  * @brief TIM21 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM21_Init(void)
+{
+
+  /* USER CODE BEGIN TIM21_Init 0 */
+
+  /* USER CODE END TIM21_Init 0 */
+
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  /* USER CODE BEGIN TIM21_Init 1 */
+
+  /* USER CODE END TIM21_Init 1 */
+  htim21.Instance = TIM21;
+  htim21.Init.Prescaler = 600;
+  htim21.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim21.Init.Period = 20000;
+  htim21.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim21.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim21) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim21, &sClockSourceConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim21, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM21_Init 2 */
+
+  /* USER CODE END TIM21_Init 2 */
 
 }
 
@@ -355,17 +457,17 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOA_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(BOOT0_CTRL_GPIO_Port, BOOT0_CTRL_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOC, BOOT0_CTRL_Pin|LUNA_EN_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOA, LASER_EN_Pin|EN_BUCK_Pin|LEDG_Pin|LEDR_Pin, GPIO_PIN_RESET);
 
-  /*Configure GPIO pin : BOOT0_CTRL_Pin */
-  GPIO_InitStruct.Pin = BOOT0_CTRL_Pin;
+  /*Configure GPIO pins : BOOT0_CTRL_Pin LUNA_EN_Pin */
+  GPIO_InitStruct.Pin = BOOT0_CTRL_Pin|LUNA_EN_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(BOOT0_CTRL_GPIO_Port, &GPIO_InitStruct);
+  HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
   /*Configure GPIO pin : BTN_Pin */
   GPIO_InitStruct.Pin = BTN_Pin;

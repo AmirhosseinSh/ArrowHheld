@@ -54,10 +54,14 @@ extern "C" {
 #define BUCK_OFF()	HAL_GPIO_WritePin(EN_BUCK_GPIO_Port,EN_BUCK_Pin,GPIO_PIN_RESET);
 #define LASER_ON()	HAL_GPIO_WritePin(LASER_EN_GPIO_Port,LASER_EN_Pin,GPIO_PIN_SET);
 #define LASER_OFF()	HAL_GPIO_WritePin(LASER_EN_GPIO_Port,LASER_EN_Pin,GPIO_PIN_RESET);
+#define VIBRATOR_ON()		HAL_TIM_PWM_Start(&htim2,TIM_CHANNEL_2);
+#define VIBRATOR_OFF()	HAL_TIM_PWM_Stop(&htim2,TIM_CHANNEL_2);
 
 #define BOOT0_OFF()	HAL_GPIO_WritePin(BOOT0_CTRL_GPIO_Port,BOOT0_CTRL_Pin,GPIO_PIN_RESET);
 #define BOOT0_ON()	HAL_GPIO_WritePin(BOOT0_CTRL_GPIO_Port,BOOT0_CTRL_Pin,GPIO_PIN_SET);
 /* USER CODE END EM */
+
+void HAL_TIM_MspPostInit(TIM_HandleTypeDef *htim);
 
 /* Exported functions prototypes ---------------------------------------------*/
 void Error_Handler(void);
@@ -69,9 +73,13 @@ void Error_Handler(void);
 /* Private defines -----------------------------------------------------------*/
 #define BOOT0_CTRL_Pin GPIO_PIN_14
 #define BOOT0_CTRL_GPIO_Port GPIOC
+#define LUNA_EN_Pin GPIO_PIN_15
+#define LUNA_EN_GPIO_Port GPIOC
 #define BTN_Pin GPIO_PIN_0
 #define BTN_GPIO_Port GPIOA
 #define BTN_EXTI_IRQn EXTI0_1_IRQn
+#define VIB_EN_Pin GPIO_PIN_1
+#define VIB_EN_GPIO_Port GPIOA
 #define LASER_EN_Pin GPIO_PIN_4
 #define LASER_EN_GPIO_Port GPIOA
 #define EN_BUCK_Pin GPIO_PIN_5
